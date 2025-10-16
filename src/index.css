@@ -1,0 +1,62 @@
+/* stylelint-disable at-rule-no-unknown */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-blue: 0,110,255; /* base RGB for easier rgba construction */
+  --blue-80: rgba(0,110,255,0.8);
+  --blue-30: rgba(0,110,255,0.3);
+  --gold: #E6CB6B;
+  --yellow: #FFF3B0;
+  --text-white: #ffffff;
+  --text-shadow: rgba(0, 0, 0, 0.7);
+}
+
+/* Site gradient (vertical) — warm yellow to soft blue at 80% opacity */
+.site-gradient {
+  background: linear-gradient(180deg, var(--yellow) 0%, var(--blue-80) 100%);
+}
+
+/* Soft overlay tint used above slideshow/background media for legibility */
+.overlay-tint {
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--blue-30), transparent 50%, rgba(255,243,176,0.3));
+}
+
+/* Background media softening: opacity + blur + smooth crossfade */
+.bg-media {
+  opacity: 0.35; /* softened memory-like feel */
+  filter: blur(2px);
+  transition: opacity 1.2s ease-in-out, filter 1.2s ease-in-out;
+}
+
+/* Hero / heading text style */
+.hero-text {
+  font-family: 'Playfair Display', serif;
+  letter-spacing: 0.03em;
+  line-height: 1.6;
+  color: var(--text-white);
+  text-shadow: 2px 2px 6px var(--text-shadow);
+  text-align: center;
+}
+
+/* Button: gold background, blue text, pill shape */
+.btn-gold {
+  background-color: var(--gold);
+  color: rgba(var(--primary-blue), 1); /* fallback to full blue for text */
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.btn-gold:hover,
+.btn-gold:focus {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+/* Small utility for subtle white text shadow when needed */
+.text-soft-white {
+  color: var(--text-white);
+  text-shadow: 2px 2px 6px var(--text-shadow);
+}
