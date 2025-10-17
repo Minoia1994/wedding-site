@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RSVP</title>
+  <style>
+    :root{--bg:#0b1220;--glass:rgba(255,255,255,0.06);--accent:#E6CB6B;--text:#ffffff}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Playfair Display', serif;color:var(--text);background:transparent;display:flex;align-items:center;justify-content:center}
+    .frame{width:100%;max-width:720px;padding:36px;border-radius:22px;background:rgba(255,255,255,0.06);backdrop-filter:blur(6px);box-shadow:0 10px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:64vh}
+    h1{font-size:34px;margin:0 0 8px}
+    p{margin:0 0 20px;opacity:.95;font-size:17px}
+    .label{display:block;margin-bottom:8px;font-size:15px;font-weight:600}
+    input,select{width:100%;max-width:560px;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.22);color:var(--text);outline:none;font-size:15px;margin:6px 0}
+    button{margin-top:18px;padding:12px 18px;border-radius:999px;border:none;background:var(--accent);color:#07203b;font-weight:700;cursor:pointer}
+    .lang{display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;margin-bottom:18px}
+    .lang-label{font-weight:700;font-size:16px;letter-spacing:0.01em}
+    .flag-row{display:flex;gap:12px}
+    .flag{width:56px;height:56px;font-size:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;border:3px solid rgba(255,255,255,0.08);cursor:pointer;transition:transform .18s ease}
+    .flag:hover{transform:translateY(-4px) scale(1.06)}
+  </style>
+</head>
+<body>
+  <form class="frame" id="rsvp">
+    <div class="lang">
+      <div class="lang-label">Choose your language / Scegli la lingua</div>
+      <div class="flag-row">
+        <div class="flag" data-lang="en" aria-label="English">🇬🇧</div>
+        <div class="flag" data-lang="it" aria-label="Italian">🇮🇹</div>
+      </div>
+    </div>
+   
+    <h1 id="title">RSVP</h1>
+    <p id="intro">Please confirm your attendance to access the wedding website.</p>
+
+    <label class="label" id="label-name">Name</label>
+    <input id="name" name="name" required />
+
+    <label class="label" id="label-surname">Surname</label>
+    <input id="surname" name="surname" required />
+
+    <label class="label" id="label-attending">Will you be attending?</label>
+    <select id="attending" name="attending" required>
+      <option value="" selected disabled id="opt-select">Select an option</option>
+      <option value="yes" id="opt-yes">Yes, I’ll be there</option>
+      <option value="no" id="opt-no">No, sadly can’t make it</option>
+    </select>
+
+    <button type="submit" id="btn-continue">Continue</button>
+  </form>
+
+  <script>
+    const strings = {
+      en: {
+        title: 'RSVP',
+        intro: 'Please confirm your attendance to access the wedding website.',
+        name: 'Name',
+        surname: 'Surname',
+        attending: 'Will you be attending?',
+        selectOption: 'Select an option',
+        yes: 'Yes, I’ll be there',
+        no: 'No, sadly can’t make it',
+        continue: 'Continue'
+      },
+      it: {
+        title: 'Conferma di partecipazione',
+        intro: 'Conferma la tua presenza per accedere al sito del matrimonio.',
+        name: 'Nome',
+        surname: 'Cognome',
+        attending: 'Parteciperai?',
+        selectOption: "Seleziona un'opzione",
+        yes: 'Sì, ci sarò',
+        no: 'No, purtroppo non posso venire',
+        continue: 'Continua'
+      }
+    };
+
+    let currentLang = 'en';
+    function applyLang(lang) {
+      if (!strings[lang]) return;
+      currentLang = lang;
+      document.getElementById('title').textContent = strings[lang].title;
+      document.getElementById('intro').textContent = strings[lang].intro;
+      document.getElementById('label-name').textContent = strings[lang].name;
+      document.getElementById('label-surname').textContent = strings[lang].surname;
+      document.getElementById('label-attending').textContent = strings[lang].attending;
+      document.getElementById('opt-select').textContent = strings[lang].selectOption;
+      document.getElementById('opt-yes').textContent = strings[lang].yes;
+      document.getElementById('opt-no').textContent = strings[lang].no;
+      document.getElementById('btn-continue').textContent = strings[lang].continue;
+    }
+
+    // initialize
+    applyLang(currentLang);
+
+    const flags = document.querySelectorAll('.flag');
+    flags.forEach(el => {
+      el.addEventListener('click', () => {
+        const lang = el.getAttribute('data-lang');
+        // visually indicate selection
+        document.querySelectorAll('.flag').forEach(f => f.style.borderColor = 'rgba(255,255,255,0.08)');
+        el.style.borderColor = 'white';
+        // update iframe text
+        applyLang(lang);
+        // notify parent app to change its language as well
+        if (window.parent) window.parent.postMessage({ action: 'setLanguage', language: lang }, '*');
+      });
+    });
+
+    const form = document.getElementById('rsvp');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const surname = document.getElementById('surname').value.trim();
+      const attending = document.getElementById('attending').value;
+      // notify parent window (the React app) and allow it to handle navigation
+      if (window.parent) {
+        window.parent.postMessage({ action: 'rsvp', name, surname, attending }, '*');
+      }
+    });
+  </script>
+</body>
+</html>

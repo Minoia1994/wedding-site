@@ -19,10 +19,14 @@ export default function BubbleBackground({
   opacity = 0.28,
   avoidOverlap = true,
 }) {
+  const DEBUG = true; // toggle verbose debug visuals/logs
   const idRef = useRef(1);
   const [bubbles, setBubbles] = useState([]);
   const mediaRef = useRef(media);
   mediaRef.current = media;
+
+  // helper to format px values (React accepts numbers too but keep explicit for debugging)
+  const px = (v) => (typeof v === 'number' ? `${v}px` : v);
 
   // determine max bubbles based on viewport
   const getMaxBubbles = () => (typeof window !== 'undefined' && window.innerWidth < 640 ? maxMobile : maxDesktop);
@@ -42,7 +46,8 @@ export default function BubbleBackground({
   };
 
   // create a bubble object with random position/size and content
-  const createBubble = (content) => {
+  // `existingPositions` should be an array of {cx, cy, r} representing other bubbles to avoid
+  const createBubble = (content, existingPositions = []) => {
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
 
@@ -50,21 +55,19 @@ export default function BubbleBackground({
     const sizePx = (sizeVw / 100) * vw;
 
     // candidate center position (in px) within viewport such that bubble fully visible
-    const maxAttempts = 20;
+    const maxAttempts = 40;
     let attempt = 0;
-    let leftPx, topPx;
-    let cx, cy;
-
-    const existing = bubbles.map((b) => ({ cx: b.cx, cy: b.cy, r: b.r }));
+    let leftPx = 0, topPx = 0;
+    let cx = 0, cy = 0;
 
     do {
-      leftPx = rand(0, vw - sizePx);
-      topPx = rand(0, vh - sizePx - 80); // leave some top/bottom margin
+      leftPx = rand(0, Math.max(0, vw - sizePx));
+      topPx = rand(0, Math.max(0, vh - sizePx - 80)); // leave some top/bottom margin
       cx = leftPx + sizePx / 2;
       cy = topPx + sizePx / 2;
       attempt += 1;
       if (attempt > maxAttempts) break;
-    } while (avoidOverlap && isOverlapping({ cx, cy, r: sizePx / 2 }, existing));
+    } while (avoidOverlap && isOverlapping({ cx, cy, r: sizePx / 2 }, existingPositions));
 
     const id = idRef.current++;
 
@@ -88,6 +91,13 @@ export default function BubbleBackground({
     };
   };
 
+  // debug log when a bubble is created
+  useEffect(() => {
+    if (!DEBUG) return;
+    // log every creation/removal by watching bubbles
+    console.debug('[BubbleBackground] bubbles count:', bubbles.length, bubbles.map(b => ({ id: b.id, src: b.src })));
+  }, [bubbles, DEBUG]);
+
   // spawn bubbles up to limit
   useEffect(() => {
     function spawnUntilLimit() {
@@ -96,6 +106,8 @@ export default function BubbleBackground({
         if (prev.length >= max) return prev;
         const needed = max - prev.length;
         const newB = [];
+        // build an existing positions array to avoid overlap when creating multiple bubbles in this update
+        const existingPositions = prev.map((b) => ({ cx: b.cx, cy: b.cy, r: b.r }));
         for (let i = 0; i < needed; i++) {
           const rawPool = mediaRef.current.length ? mediaRef.current : [];
           const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
@@ -103,7 +115,10 @@ export default function BubbleBackground({
           if (!pool.length) break;
           // pick next media in round-robin
           const content = pool[Math.floor(Math.random() * pool.length)];
-          newB.push(createBubble(content));
+          const bubble = createBubble(content, existingPositions);
+          newB.push(bubble);
+          // add newly created bubble to existing positions so next bubble avoids it
+          existingPositions.push({ cx: bubble.cx, cy: bubble.cy, r: bubble.r });
         }
         return [...prev, ...newB];
       });
@@ -148,11 +163,13 @@ export default function BubbleBackground({
     setTimeout(() => {
       setBubbles((prev) => {
         const filtered = prev.filter((b) => b.id !== id);
-        // spawn a replacement
+        // spawn a replacement using current filtered positions to avoid overlap
         const pool = mediaRef.current.length ? mediaRef.current : [];
         if (pool.length && filtered.length < getMaxBubbles()) {
+          const existingPositions = filtered.map((b) => ({ cx: b.cx, cy: b.cy, r: b.r }));
           const content = pool[Math.floor(Math.random() * pool.length)];
-          return [...filtered, createBubble(content)];
+          const bubble = createBubble(content, existingPositions);
+          return [...filtered, bubble];
         }
         return filtered;
       });
@@ -183,32 +200,46 @@ export default function BubbleBackground({
 
   // render
   return (
-    <div className="absolute inset-0 -z-20 pointer-events-none overflow-hidden">
+    // wrapper now sits above content so bubbles visually float over the glass card during development
+    <div className="absolute inset-0 pointer-events-none overflow-hidden bubble-wrapper" style={{ zIndex: 9999 }}>
       {bubbles.map((b) => (
         <div
           key={b.id}
-          className={`absolute rounded-full overflow-hidden shadow-2xl transition-all duration-1000 ease-in-out`}
+          className={`absolute rounded-full overflow-hidden shadow-2xl transition-all duration-1000 ease-in-out bubble`}
           style={{
-            left: b.left,
-            top: b.top,
+            left: px(b.left),
+            top: px(b.top),
             width: `${b.sizeVw}vw`,
             height: `${b.sizeVw}vw`,
             transform: b.isPopping ? 'scale(1.25)' : 'scale(1)',
-            opacity: b.isPopping ? 0 : b.opacity,
+            // ensure high visibility in debug mode
+            opacity: b.isPopping ? 0 : (DEBUG ? Math.max(b.opacity, 0.9) : b.opacity),
             transitionProperty: 'transform, opacity, left, top',
             transitionDuration: b.isPopping ? '420ms' : '8000ms',
-            border: '1px solid rgba(255,255,255,0.06)',
+            border: DEBUG ? '2px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.06)',
             zIndex: b.z,
             backdropFilter: 'blur(1px)',
+            boxShadow: DEBUG ? '0 6px 30px rgba(0,110,255,0.12), inset 0 4px 16px rgba(0,0,0,0.18)' : undefined,
           }}
         >
+          {/* debug label: visible id and src (development only) */}
+          {DEBUG && (
+            <div style={{ position: 'absolute', left: 8, top: 8, zIndex: 9999, background: 'rgba(0,0,0,0.5)', color: 'white', padding: '4px 8px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
+              #{b.id}
+            </div>
+          )}
           {b.type === 'image' ? (
             <img
               src={b.src}
               alt=""
               className="w-full h-full object-cover bg-media"
               draggable={false}
-              onLoad={() => { /* image loaded */ }}
+              onLoad={(ev) => { 
+                if (DEBUG) console.debug('[BubbleBackground] image loaded', b.id, b.src, ev.currentTarget.naturalWidth, ev.currentTarget.naturalHeight);
+                // make image slightly more visible when loaded (temporary visual aid)
+                ev.currentTarget.style.transition = 'opacity 600ms ease, filter 600ms ease';
+                ev.currentTarget.style.opacity = '1';
+              }}
             />
           ) : (
             <video
