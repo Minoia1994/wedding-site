@@ -21,34 +21,14 @@ export default function WeddingSite() {
   );
 
   // === STATE ===
-  const [step, setStep] = useState('iframe'); // 'iframe' | 'sorry' | 'main'
+  const [step, setStep] = useState('rsvp'); // 'rsvp' | 'sorry' | 'main'
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
-  const [_attending, setAttending] = useState(null);
+  const [attending, setAttending] = useState(null);
   const [language, setLanguage] = useState('en');
   // idx state and crossfade handled by BubbleBackground; remove unused state
 
-  // listen for RSVP messages from the iframe
-  useEffect(() => {
-    function onMessage(e) {
-      if (!e?.data) return;
-      try {
-        const payload = e.data;
-        if (payload.action === 'rsvp') {
-          setName(payload.name || '');
-          setSurname(payload.surname || '');
-          setAttending(payload.attending || null);
-          setStep(payload.attending === 'yes' ? 'main' : 'sorry');
-        } else if (payload.action === 'setLanguage') {
-          if (payload.language === 'en' || payload.language === 'it') setLanguage(payload.language);
-        }
-      } catch {
-        // ignore
-      }
-    }
-    window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
-  }, []);
+  // No iframe messaging — RSVP form is rendered inline so we handle language and submit directly.
 
   const t = {
     en: {
@@ -114,28 +94,89 @@ export default function WeddingSite() {
     </div>
   );
 
-  if (step === 'iframe') {
+  function handleRSVPSubmit(e) {
+    e.preventDefault();
+    setStep(attending === 'yes' ? 'main' : 'sorry');
+  }
+
+  if (step === 'rsvp') {
     return (
       <Outer>
-        <div className="w-full flex items-center justify-center">
-          {/* responsive square wrapper — keeps iframe a centered square */}
-          <div className="px-4" style={{ width: 'min(92vw, 720px)', height: 'min(92vw, 720px)', maxWidth: 920 }}>
-            <iframe
-              src="/rsvp.html"
-              title="RSVP"
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: 22,
-                border: '1px solid rgba(255,255,255,0.06)',
-                boxShadow: '0 20px 60px rgba(2,6,23,0.6)',
-                background: 'transparent',
-                overflow: 'hidden',
-              }}
-              className="mx-auto block"
-            />
+        <form
+          onSubmit={handleRSVPSubmit}
+          className="w-full mx-auto max-w-xl rounded-3xl p-8 sm:p-10 text-center shadow-2xl bg-white/6 backdrop-blur-sm border border-white/10 text-soft-white"
+        >
+          {/* Language toggle */}
+          <div className="flex justify-center mb-6 gap-3">
+            <button
+              onClick={(e) => { e.preventDefault(); setLanguage('en'); }}
+              className={`w-12 h-12 rounded-full border-2 ${language === 'en' ? 'border-white' : 'border-white/40'}`}
+              title="English"
+            >🇬🇧</button>
+            <button
+              onClick={(e) => { e.preventDefault(); setLanguage('it'); }}
+              className={`w-12 h-12 rounded-full border-2 ${language === 'it' ? 'border-white' : 'border-white/40'}`}
+              title="Italiano"
+            >🇮🇹</button>
           </div>
-        </div>
+
+          <h1 className="hero-text text-4xl sm:text-5xl font-semibold tracking-wider mb-4">
+            {language === 'en' ? 'RSVP' : 'Conferma di partecipazione'}
+          </h1>
+          <p className="hero-text opacity-95 mb-8 text-lg sm:text-xl leading-relaxed max-w-2xl mx-auto">
+            {language === 'en'
+              ? 'Please confirm your attendance to access the wedding website.'
+              : 'Conferma la tua presenza per accedere al sito del matrimonio.'}
+          </p>
+
+          <div className="grid gap-5 text-left w-full">
+            <label className="text-base sm:text-lg">
+              <span className="block mb-1">• {language === 'en' ? 'Name' : 'Nome'}</span>
+              <input
+                required
+                className="mt-0 w-full rounded-2xl bg-white/10 border border-white/50 px-4 py-3 placeholder-white/60 focus:outline-none focus:ring-2"
+                style={{ color: 'white' }}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+
+            <label className="text-base sm:text-lg">
+              <span className="block mb-1">• {language === 'en' ? 'Surname' : 'Cognome'}</span>
+              <input
+                required
+                className="mt-0 w-full rounded-2xl bg-white/10 border border-white/50 px-4 py-3 placeholder-white/60 focus:outline-none focus:ring-2"
+                style={{ color: 'white' }}
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+              />
+            </label>
+
+            <label className="text-base sm:text-lg">
+              <span className="block mb-1">• {language === 'en' ? 'Will you be attending?' : 'Parteciperai?'}</span>
+              <select
+                required
+                className="mt-0 w-full rounded-2xl bg-white/10 border border-white/50 px-4 py-3 focus:outline-none focus:ring-2"
+                style={{ color: 'white' }}
+                value={attending || ''}
+                onChange={(e) => setAttending(e.target.value)}
+              >
+                <option value="" disabled className="bg-[#1b1b1b]">
+                  {language === 'en' ? 'Select an option' : "Seleziona un'opzione"}
+                </option>
+                <option value="yes" className="text-black">{language === 'en' ? 'Yes, I’ll be there' : 'Sì, ci sarò'}</option>
+                <option value="no" className="text-black">{language === 'en' ? 'No, sadly can’t make it' : 'No, purtroppo non posso venire'}</option>
+              </select>
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            className="mt-8 w-full sm:w-auto px-8 py-3.5 rounded-full font-medium btn-gold"
+          >
+            {language === 'en' ? 'Continue' : 'Continua'}
+          </button>
+        </form>
       </Outer>
     );
   }
@@ -169,11 +210,13 @@ export default function WeddingSite() {
         avoidOverlap={true}
       />
       <div className="absolute inset-0 overlay-tint" />
-      <iframe
-        src="/main-wedding-site.html"
-        title="Giuseppe & Chloe Wedding Website"
-        className="relative w-full h-screen border-0"
-      />
+      {/* main content would be rendered here when attending */}
+      <div className="relative w-full min-h-screen">
+        <div className="max-w-6xl mx-auto p-8">
+          <h2 className="hero-text text-4xl text-center text-soft-white">Welcome to the wedding site</h2>
+          {/* placeholder content — replace with your main site */}
+        </div>
+      </div>
     </div>
   );
 }
